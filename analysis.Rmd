@@ -161,7 +161,9 @@ results.fd = ITP2bspline(
   SA_subpop1, SA_subpop2, mu = 0, order = 4, nknots = dim(SA_subpop1)[2], B = 5000, paired = FALSE
 )
 ```
+
 Plotting the p-values heatmap:
+
 ```{r}
 ITPimage(results.fd, abscissa.range=range(logperiods))
 
@@ -172,6 +174,7 @@ which(results.fd$corrected.pval < 0.05)
 All calculated p-values are equal to 0, indicating a statistically significant difference between the two populations at every time point.
 
 Attempting to Remove Spatial Correlation using a single event at a time:
+
 ```{r}
 SA_single1 <- log10(df_single_events[which(df_single_events$magnitude < mh0), 7:42])
 SA_single2 <- log10(df_single_events[which(df_single_events$magnitude >= mh0), 7:42])
@@ -184,6 +187,7 @@ which(ITP.result_single$corrected.pval < 0.05)
 The observed p-values are nearly uniformly equal to 0, indicating significant differences between the two populations at each time point, except for time points 2, 3, 4, 5, and 35.
 
 Graphically we get
+
 ```{r}
 matplot(
   logperiods, t(rbind(SA_single1, SA_single2)), type='l', col=c('#FFC700','#9D260C'),
@@ -196,6 +200,7 @@ legend(
 ```
 
 More in detail for the mean:
+
 ```{r}
 t1.mean = colMeans(SA_single1)
 t2.mean = colMeans(SA_single2)
@@ -211,6 +216,7 @@ legend(
 ```
 
 And also for the median:
+
 ```{r}
 sa1_median <- median_fData(fData = fData(logperiods,SA_single1), type = "MBD")
 sa2_median <- median_fData(fData = fData(logperiods,SA_single2), type = "MBD")
@@ -226,8 +232,8 @@ legend(
 
 Now, the results are consistent, indicating that for events with magnitude less than 5.7 and low SA, there is no significant difference between the mean and median. However, it's worth noting that despite the similarity between mean and median values, the populations themselves exhibit significant differences.
 
-
 ## Manova on Style of Faulting
+
 ```{r}
 B <- 5000
 seed = 111222
@@ -242,12 +248,15 @@ summary(ITP.aov)
 ```
 
 Identify factors with corrected p-values less than 0.05:
+
 ```{r}
 which(ITP.aov$corrected.pval.factors < 0.05)
 ```
+
 The functions appear to diverge mainly towards the end of the observation period (32 and 36).
 
 Attempting the analysis with individual earthquakes.
+
 ```{r}
 B = 5000
 
@@ -260,13 +269,17 @@ ITP.aov_single <- ITPaovbspline(
   nknots = nknots, B = B, method = "residuals")
 summary(ITP.aov_single)
 ```
+
 Identify factors with corrected p-values less than 0.05:
+
 ```{r}
 which(ITP.aov_single$corrected.pval.factors < 0.05)
 ```
-All p-values are far from 0 (> 0.54), indicating that the SOF variable does not appear to be statistically significant.
+
+All p-values are far from 0 (\> 0.54), indicating that the SOF variable does not appear to be statistically significant.
 
 Graphically we have:
+
 ```{r}
 SA_subpop1 <- log10(df_single_events[which(df_single_events$sof==1), 7:42])
 SA_subpop2 <- log10(df_single_events[which(df_single_events$sof==2), 7:42])
@@ -278,7 +291,9 @@ matplot(
 )
 legend('bottomleft', c('TF', 'SS','NF'), col=c("#FFC700", "#FF9900", "#9D260C"), lty=1, lwd=2)
 ```
+
 More in detail if we look at the mean:
+
 ```{r}
 t1.mean = colMeans(SA_subpop1)
 t2.mean = colMeans(SA_subpop2)
@@ -294,6 +309,7 @@ legend('bottomleft', c('TF', 'SS','NF'), col=c("#FFC700", "#FF9900", "#9D260C"),
 ```
 
 and finally the medians:
+
 ```{r}
 sa1_median <- median_fData(fData = fData(logperiods, SA_subpop1), type = "MBD")
 sa2_median <- median_fData(fData = fData(logperiods, SA_subpop2), type = "MBD")
@@ -306,26 +322,35 @@ matplot(
 legend('bottomleft', c('TF', 'SS','NF'), col=c("#FFC700", "#FF9900", "#9D260C"), lty=1, lwd=2)
 
 ```
+
 There is no difference between the mean and median plots, the curves overlap.
 
-
 # Model
+
 Split data in train-test in order to check how the model will perform on new data:
+
 ```{r}
-test_index <- twin(seismic_data, r=5, u1=11)
+test_index <- twin(seismic_data, r=5, u1=10)
 train_set <- seismic_data[-test_index, ]
 test_set <- seismic_data[test_index, ]
 ```
 
 Select columns for fitting the model
+
 ```{r}
 seismic_train_data <- data.frame(
   cbind(train_set[, c(7:10)], train_set[, 12:47])
 )
+
+seismic_test_data <- data.frame(
+  cbind(test_set[, c(7:10)], test_set[, 12:47])
+)
 ```
 
 ## Model with SoF
+
 First of all we define the design matrix
+
 ```{r}
 Mh = 5.7
 Mref = 4.5
@@ -334,7 +359,9 @@ design_matrix = model_design$design_matrix
 ```
 
 ### Multivariate Regression Model
+
 Then on the above defined model we build the Bootstrap Confidence Intervals for the coefficients
+
 ```{r}
 B <- 100
 alpha <- 0.05
@@ -346,13 +373,16 @@ res = bootstrap_CI(design_matrix, names, alpha, B, seed, T)
 ```
 
 ### Functional Regression Model
+
 Select the best smoothing basis by looking at one seismic event
+
 ```{r}
 Xobs0 <- t(model_design$log10_SA[1,])
 
 basis <- create.bspline.basis(logperiods, norder = 4)
 opt.lambda <- get_optimal_lambda(-15, 0, 0.5, basis, Xobs0, logperiods)
 ```
+
 ```{r}
 data.fd <- Data2fd(y = t(model_design$log10_SA), argvals = logperiods, basisobj = basis, lambda = opt.lambda)
 basis  <- data.fd$basis
@@ -360,6 +390,7 @@ fPar <- fdPar(fdobj = basis, Lfdobj = 2, lambda = opt.lambda)
 ```
 
 Plot the smoothing function and its derivative:
+
 ```{r}
 Xss <- smooth.basis(logperiods, Xobs0, fPar)
 Xss0 <- eval.fd(logperiods, Xss$fd, Lfd=0)
@@ -383,6 +414,7 @@ lines(logperiods, Xss2, col="#FF9900", lwd=2)
 ```
 
 Perform the penalized smoothing of the data based on the above selected smoothing basis
+
 ```{r}
 xlist <- list(
   "intercept" = rep(1, model_design$n),
@@ -404,13 +436,17 @@ names = c('a', 'b1', 'b2', 'f2', 'c3', 'c1', 'c2', 'k')
 plot_functional_coeff(mod, -2, 1, 100, names)
 
 ```
+
 ### Residual decorrelation
+
 Conduct residual decorrelation with the assistance of Matlab for computational issues
+
 ```{r}
 # Save the original residuals and the their covariance matrix 
 vgm = vgm(10.1, "Exp", 0.1, 6)
 value = residual_decorrelation(train_set, mod, -2, 1, 100, vgm, "data/residuals.csv", "data/sigma.csv")
 ```
+
 ```{r}
 # Import the decorrelated residuals and plot them
 decorrelated_res <- read_csv("data/decorrelated_residuals.csv", col_names = FALSE)
@@ -419,14 +455,18 @@ plot(value$t_grid, t(decorrelated_res)[, 30], type='l', ylim=range(c(t(decorrela
      main='decorrelated residuals wrt the originals', lwd=2, col='darkred', 
      xlab='log(T)', ylab='residual curve')
 lines(value$t_grid, value$res[, 30], col='black', lwd=2)
+abline(h=0, lty=3)
 legend("topright", col=c('black', 'darkred'), lwd=c(2, 2), legend=c('original', 'decorrelated'))
 ```
-### Bootstrap Inference
+
+## Bootstrap Inference
+
 ```{r}
 B <- 100
 seed <- 111222
 
 sqrt_root_sigma <- read_csv("data/squared_root_sigma.csv", col_names = FALSE)
+
 
 test_res = functional_bootstrap_significance_test(
   logperiods,
@@ -437,18 +477,24 @@ test_res = functional_bootstrap_significance_test(
   B, seed
 )
 ```
+
 Histogram of the test statistics distribution
+
 ```{r}
 hist(test_res$t_stat, main='Histogram of the test statistics distribution', xlim=range(c(test_res$t_stat, test_res$t_obs)))
 abline(v=test_res$t_obs, col=3)
 ```
+
 ```{r}
 (pval = test_res$p_val)
 ```
+
 Therefore we can remove sof as regressor
 
 # Model without SoF
+
 First of all we define the design matrix
+
 ```{r}
 Mh = 5.7
 Mref = 4.5
@@ -457,6 +503,7 @@ design_matrix = model_design$design_matrix
 ```
 
 Perform the penalized smoothing of the data based on the above selected smoothing basis
+
 ```{r}
 xlist.no_sof <- list(
   "intercept" = rep(1, model_design$n),
@@ -479,7 +526,9 @@ plot_functional_coeff(mod.no_sof, -2, 1, 100, names)
 ```
 
 ## Residual decorrelation
+
 Conduct residual decorrelation with the assistance of Matlab for computational issues
+
 ```{r}
 # Save the original residuals and the their covariance matrix 
 vgm = vgm(10.1, "Exp", 0.1, 9)
@@ -501,26 +550,106 @@ legend("topright", col=c('black', 'darkred'), lwd=c(2, 2), legend=c('original', 
 ```
 
 ## Functional Bootstrap Regression
+
 ```{r}
 B = 100
 seed = 111222
 
 # Number of predictors
 n_coeffs = length(names)
-
-sqrt_root_sigma_no_sof <- read_csv("data/no_sof_squared_root_sigma.csv", col_names = FALSE)
+sqrt_root_sigma_no_sof
+sqrt_root_sigma <- read_csv("data/squared_root_sigma.csv", col_names = FALSE)
 t_grid = value.no_sof$t_grid
 
 par(mfrow=c(2, 4), mar = c(3, 3, 2, 1))
 
 for (j in c(1:n_coeffs)){
   functional_bootstrap_CI(
-    t_grid, basis, mod.no_sof, 
+    model_design$log10_SA,
+    logperiods, basis, mod.no_sof, 
     opt.lambda, xlist.no_sof, 
     blist.no_sof, j,  
     sqrt_root_sigma_no_sof, names, 
     B, seed
   )
 }
+```
+
+# Comparing the performances of the 2 functional models
+
+```{r}
+# test set for the model with sof
+model_design_test <- build_design_matrix(seismic_test_data, Mh, Mref, T)
+design_matrix_test = model_design_test$design_matrix
+xlist_test <- list(
+  "intercept" = rep(1, model_design_test$n),
+  "source1"   = model_design_test$source*model_design_test$dummy1,
+  "source2"   = model_design_test$source*model_design_test$dummy2,
+  "sof"       = model_design_test$sof,
+  "distance"  = model_design_test$distance,
+  "path1"     = model_design_test$path1,
+  "path2"     = model_design_test$path2,
+  "site"      = model_design_test$site
+)
+
+```
+
+```{r}
+# test set for the model without sof
+model_design_test_nosof <- build_design_matrix(seismic_test_data, Mh, Mref, F)
+design_matrix_test_nosof = model_design_test$design_matrix
+xlist_test_nosof <- list(
+  "intercept" = rep(1, model_design_test_nosof$n),
+  "source1"   = model_design_test_nosof$source*model_design_test_nosof$dummy1,
+  "source2"   = model_design_test_nosof$source*model_design_test_nosof$dummy2,
+  "distance"  = model_design_test_nosof$distance,
+  "path1"     = model_design_test_nosof$path1,
+  "path2"     = model_design_test_nosof$path2,
+  "site"      = model_design_test_nosof$site
+)
+
+```
+
+
+```{r}
+# Functional model with sof
+rands <- runif(500,min=1, max=model_design_test$n )
+Y.cv <- t(model_design_test$log10_SA[rands, ])
+data.fd.cv <- Data2fd(y = Y.cv , argvals = logperiods, basisobj = basis, lambda = opt.lambda )
+xlist_test <- as.data.frame(xlist_test)
+xlist.cv <- as.list(xlist_test[rands, ])
+
+mod.cv <- fRegress.CV(y        = data.fd.cv,
+                      xfdlist  = xlist.cv,
+                      betalist = blist)
+mean.MSE <- mean.fd(mod.cv$errfd.cv)
+
+errors <- eval.fd(logperiods, mean.MSE)
+errors <- sqrt(abs(errors))
+
+
+# Functional model without sof
+rands <- runif(500, min=1, max=model_design_test_nosof$n )
+Y.cv <- t(model_design_test_nosof$log10_SA[rands, ])
+data.fd.cv <- Data2fd(y = Y.cv , argvals = logperiods, basisobj = basis, lambda = opt.lambda )
+xlist_test_nosof <- as.data.frame(xlist_test_nosof)
+xlist.cv <- as.list(xlist_test_nosof[rands, ])
+blist <- list(fPar, fPar, fPar, fPar, fPar, fPar, fPar)
+
+mod.cv_nosof <- fRegress.CV(y  = data.fd.cv,
+                      xfdlist  = xlist.cv,
+                      betalist = blist)
+mean.MSE_nosof <- mean.fd(mod.cv_nosof$errfd.cv)
+
+
+errors_nosof <- eval.fd(logperiods, mean.MSE_nosof)
+errors_nosof <- sqrt(abs(errors_nosof))
+
+
+# plot of the RMSE for comparing performances
+plot(logperiods, errors,type='l', lwd=2, xlab = "log_10(T)", ylab = "RMSE",ylim=c(0,0.1),main='RMSE of ITA18 functional models')
+lines(logperiods, errors_nosof,lwd=2, col="#9D260C")
+legend("topright",legend = c('with sof','without sof'),col=c('black',"#9D260C"),cex=0.8,pch=19)
+
 ```
 
