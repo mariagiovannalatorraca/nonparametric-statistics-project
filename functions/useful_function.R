@@ -684,18 +684,19 @@ functional_bootstrap_significance_test = function(
 #' @examples
 #' result <- functional_bootstrap_CI(logperiods, basis, my_model, my_lambda, my_blist, 0, 10, 100, 1000, 123)
 #'
-functional_bootstrap_CI = function(t_grid, basis, mod, opt.lambda, xlist, blist, coeff, sqrt_root_sigma, names, B, seed){
+functional_bootstrap_CI = function(y_true, logperiods, basis, mod, opt.lambda, xlist, blist, coeff, sqrt_root_sigma, names, B, seed){
   
-  # Define the time grid
-  length.out = length(t_grid)
+  # Define the sample length
+  n <- dim(res.fd$coefs)[2]
   
-  colors <- colorRampPalette(c("#FFC700", "#9D260C"))(B)
+  # Define the basis matrix
+  basismat <- eval.basis(logperiods, basis)
   
   # Extract the real y
-  y.fd <- eval.fd(t_grid, mod.no_sof$yfdobj)
+  y.fd <- mod$yfdobj
   
   # Compute the functional residuals
-  res.fd <- eval.fd(t_grid, mod$yfdobj - mod$yhatfdobj)
+  res.fd <- y.fd - mod$yhatfdobj
   
   # Set seed for reproducibility
   set.seed(seed)
@@ -707,27 +708,27 @@ functional_bootstrap_CI = function(t_grid, basis, mod, opt.lambda, xlist, blist,
   for (b in 1:B) {
     
     # Generate a random permutation
-    permutation <- sample(1:length.out)
+    permutation <- sample(1:n)
     
     # Apply the permutation to the residuals
-    res.b <- as.matrix(res.fd[permutation, ])
+    res.b <- basismat%*%res.fd$coefs[,permutation] 
     res_correlati.b = as.matrix(sqrt_root_sigma) %*% t(res.b)
     
     # Generate a response function with the permuted residuals
-    response.b <- as.matrix(y.fd + t(res_correlati.b))
+    response.b <- y_true + res_correlati.b
     
     # Create a functional data object
-    data.fd.b <- Data2fd(y = response.b, argvals = t_grid, basisobj = basis, lambda = opt.lambda)
+    data.fd.b <- Data2fd(y = t(response.b), argvals = logperiods, basisobj = basis, lambda = opt.lambda)
     
     # Fit the model with permuted data
     mod.b <- fRegress(y = data.fd.b, xfdlist = xlist, betalist = blist)
     
     # Store the bootstrap functional coefficients
-    T.boot.L[, b] <- eval.fd(t_grid, mod.b$betaestlist[[coeff]]$fd)
+    T.boot.L[, b] <- eval.fd(logperiods, mod.b$betaestlist[[coeff]]$fd)
     
   }
     
   # Calculate quantiles for confidence interval
-  boxplot.fd(T.boot.L, col = colors, barcol = "#9D260C", outliercol = 'black', main = names[coeff], xlab='log(T)', ylab='coefficient')
+  fbplot(T.boot.L, outliercol = 'black', main = names[coeff], xlab='log(T)', ylab='coefficient')
 }
 
