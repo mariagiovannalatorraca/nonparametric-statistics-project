@@ -3,21 +3,6 @@
 #' This function loads a set of libraries commonly used in statistical
 #' analysis and data manipulation.
 #'
-#' @return None
-#' @import data.table
-#' @import roahd
-#' @import twinning
-#' @import progress
-#' @import plotrix
-#' @import car
-#' @import glmnet
-#' @import caret
-#' @import MASS
-#' @import fda
-#' @import KernSmooth
-#' @import rgl
-#' @import fields
-#'
 #' @examples
 #' load_libraries()
 #'
@@ -664,45 +649,47 @@ functional_bootstrap_significance_test = function(
   return(list(t_stat = T.perm.res, t_obs = T0, p_val = p_val))
 }
 
+
 #' Functional Bootstrap Confidence Intervals
 #'
 #' This function performs functional bootstrap resampling to compute confidence intervals for functional coefficients.
 #'
+#' @param y_true True response.
 #' @param logperiods Logarithm of time periods.
 #' @param basis Basis matrix.
 #' @param mod The model object.
 #' @param opt.lambda Optimal lambda.
+#' @param xlist List of functional predictors.
 #' @param blist List of functional coefficients.
-#' @param t0 Starting time.
-#' @param tN Ending time.
-#' @param length.out Number of grid points.
+#' @param coeff Index of the coefficient for which confidence intervals are desired.
+#' @param sqrt_root_sigma Square root of the covariance matrix.
+#' @param names Names of the functional coefficients.
 #' @param B Number of bootstrap samples.
 #' @param seed Seed for randomization.
 #'
 #' @return Matrix of bootstrap functional coefficients.
 #'
 #' @examples
-#' result <- functional_bootstrap_CI(logperiods, basis, my_model, my_lambda, my_blist, 0, 10, 100, 1000, 123)
+#' result <- functional_bootstrap_CI(y_true, logperiods, basis, mod, opt.lambda, xlist, blist, coeff, sqrt_root_sigma, names, B, seed)
 #'
-functional_bootstrap_CI = function(y_true, logperiods, basis, mod, opt.lambda, xlist, blist, coeff, sqrt_root_sigma, names, B, seed){
+functional_bootstrap_CI <- function(y_true, logperiods, basis, mod, opt.lambda, xlist, blist, coeff, sqrt_root_sigma, names, B, seed) {
   
-  # Define the sample length
-  n <- dim(res.fd$coefs)[2]
-  
-  # Define the basis matrix
+  # Compute the basis matrix
   basismat <- eval.basis(logperiods, basis)
   
-  # Extract the real y
+  # Extract functional residuals
   y.fd <- mod$yfdobj
-  
-  # Compute the functional residuals
   res.fd <- y.fd - mod$yhatfdobj
+  
+  # Define sample length
+  n <- dim(res.fd$coefs)[2]
+  length.out <- length(logperiods)
   
   # Set seed for reproducibility
   set.seed(seed)
-    
-  # Initialize a vector for storing bootstrap CI
-  T.boot.L <- matrix(, nrow = length.out, ncol=B)
+  
+  # Initialize matrix to store bootstrap coefficients
+  T.boot.L <- matrix(, nrow = length.out, ncol = B)
   
   # Perform Bootstrap inference
   for (b in 1:B) {
@@ -710,11 +697,13 @@ functional_bootstrap_CI = function(y_true, logperiods, basis, mod, opt.lambda, x
     # Generate a random permutation
     permutation <- sample(1:n)
     
-    # Apply the permutation to the residuals
-    res.b <- basismat%*%res.fd$coefs[,permutation] 
-    res_correlati.b = as.matrix(sqrt_root_sigma) %*% t(res.b)
+    # Apply permutation to residuals
+    res.b <- basismat %*% res.fd$coefs[, permutation] 
     
-    # Generate a response function with the permuted residuals
+    # Calculate correlated residuals
+    res_correlati.b <- as.matrix(sqrt_root_sigma) %*% t(res.b)
+    
+    # Generate response function with permuted residuals
     response.b <- y_true + res_correlati.b
     
     # Create a functional data object
@@ -723,12 +712,11 @@ functional_bootstrap_CI = function(y_true, logperiods, basis, mod, opt.lambda, x
     # Fit the model with permuted data
     mod.b <- fRegress(y = data.fd.b, xfdlist = xlist, betalist = blist)
     
-    # Store the bootstrap functional coefficients
+    # Store bootstrap functional coefficients
     T.boot.L[, b] <- eval.fd(logperiods, mod.b$betaestlist[[coeff]]$fd)
     
   }
-    
+  
   # Calculate quantiles for confidence interval
-  fbplot(T.boot.L, outliercol = 'black', main = names[coeff], xlab='log(T)', ylab='coefficient')
+  fbplot(T.boot.L, outliercol = 'black', main = names[coeff], xlab = 'log(T)', ylab = 'coefficient')
 }
-

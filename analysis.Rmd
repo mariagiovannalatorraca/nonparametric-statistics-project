@@ -452,7 +452,7 @@ value = residual_decorrelation(train_set, mod, -2, 1, 100, vgm, "data/residuals.
 decorrelated_res <- read_csv("data/decorrelated_residuals.csv", col_names = FALSE)
 
 plot(value$t_grid, t(decorrelated_res)[, 30], type='l', ylim=range(c(t(decorrelated_res)[, 30], value$res[, 30])),
-     main='decorrelated residuals wrt the originals', lwd=2, col='darkred', 
+     main='Decorrelated residuals wrt the originals', lwd=2, col='darkred', 
      xlab='log(T)', ylab='residual curve')
 lines(value$t_grid, value$res[, 30], col='black', lwd=2)
 abline(h=0, lty=3)
@@ -460,13 +460,33 @@ legend("topright", col=c('black', 'darkred'), lwd=c(2, 2), legend=c('original', 
 ```
 
 ## Bootstrap Inference
-
 ```{r}
-B <- 100
-seed <- 111222
+B = 100
+seed = 111222
+
+# Number of predictors
+n_coeffs = length(names)
 
 sqrt_root_sigma <- read_csv("data/squared_root_sigma.csv", col_names = FALSE)
 
+par(mfrow=c(2, 4), mar = c(3, 3, 2, 1))
+
+for (j in c(1:n_coeffs)){
+  functional_bootstrap_CI(
+    model_design$log10_SA,
+    logperiods, basis, mod, 
+    opt.lambda, xlist, 
+    blist, j,  
+    sqrt_root_sigma, names, 
+    B, seed
+  )
+}
+```
+
+## Test the significance of SoF term
+```{r}
+B <- 100
+seed <- 111222
 
 test_res = functional_bootstrap_significance_test(
   logperiods,
@@ -557,9 +577,8 @@ seed = 111222
 
 # Number of predictors
 n_coeffs = length(names)
-sqrt_root_sigma_no_sof
-sqrt_root_sigma <- read_csv("data/squared_root_sigma.csv", col_names = FALSE)
-t_grid = value.no_sof$t_grid
+
+sqrt_root_sigma_no_sof <- read_csv("data/no_sof_squared_root_sigma.csv", col_names = FALSE)
 
 par(mfrow=c(2, 4), mar = c(3, 3, 2, 1))
 
